@@ -1,7 +1,8 @@
 import { chromium } from 'playwright'
-import { z } from 'zod'
+import { z } from 'zod/v4'
+import { Output } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import LLMScraper from './../src'
+import LLMScraper from './../src/index.js'
 
 // Launch a browser instance
 const browser = await chromium.launch()
@@ -32,7 +33,7 @@ const schema = z.object({
 })
 
 // Generate code and run it on the page
-const { code } = await scraper.generate(page, schema, {
+const { code } = await scraper.generate(page, Output.object({ schema }), {
   format: 'raw_html',
 })
 console.log('code', code)

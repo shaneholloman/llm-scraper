@@ -1,7 +1,6 @@
 import { type Page } from 'playwright'
-import { LanguageModelV1 } from '@ai-sdk/provider'
-import { z } from 'zod'
-import { Schema } from 'ai'
+import { type LanguageModel, type Output, type Prompt, type CallSettings, ModelMessage } from 'ai'
+
 import { preprocess, PreProcessOptions } from './preprocess.js'
 import {
   generateAISDKCompletions,
@@ -9,61 +8,49 @@ import {
   generateAISDKCode,
 } from './models.js'
 
-export type ScraperLLMOptions = {
-  prompt?: string
-  temperature?: number
-  maxTokens?: number
-  topP?: number
-  mode?: 'auto' | 'json' | 'tool'
-  output?: 'array'
+// Options for high-level LLM calls
+export type ScraperLLMOptions = CallSettings & {
+  system?: string
+  messages?: ModelMessage[]
 }
 
-export type ScraperGenerateOptions = Omit<
-  ScraperLLMOptions,
-  'output' | 'mode'
-> & {
-  format?: 'html'| 'raw_html'
+// Options for code generation
+export type ScraperGenerateOptions = Omit<ScraperLLMOptions, 'mode'> & {
+  format?: 'html' | 'raw_html'
 }
 
-export type ScraperRunOptions = ScraperLLMOptions & PreProcessOptions
+type ScraperRunOptions = ScraperLLMOptions & PreProcessOptions
 
 export default class LLMScraper {
-  constructor(private client: LanguageModelV1) {
+  constructor(private client: LanguageModel) {
     this.client = client
   }
 
-  // Pre-process the page and generate completion
-  async run<T>(
+  async run<OUTPUT extends Output.Output = Output.Output<string, string>>(
     page: Page,
-    schema: z.Schema<T, z.ZodTypeDef, any> | Schema<T>,
+    output: OUTPUT,
     options?: ScraperRunOptions
   ) {
     const preprocessed = await preprocess(page, options)
-    return generateAISDKCompletions<T>(
-      this.client,
-      preprocessed,
-      schema,
-      options
-    )
+    return generateAISDKCompletions<OUTPUT>(this.client, preprocessed, output, options)
   }
 
-  // Pre-process the page and stream completion
-  async stream<T>(
+  async stream<OUTPUT extends Output.Output = Output.Output<string, string>>(
     page: Page,
-    schema: z.Schema<T, z.ZodTypeDef, any> | Schema<T>,
+    output: OUTPUT,
     options?: ScraperRunOptions
   ) {
     const preprocessed = await preprocess(page, options)
-    return streamAISDKCompletions<T>(this.client, preprocessed, schema, options)
+    return streamAISDKCompletions<OUTPUT>(this.client, preprocessed, output, options)
   }
 
-  // Pre-process the page and generate code
-  async generate<T>(
+  // Generate scraping code instead of data
+  async generate<OUTPUT extends Output.Output = Output.Output<string, string>>(
     page: Page,
-    schema: z.Schema<T, z.ZodTypeDef, any> | Schema<T>,
+    output: OUTPUT,
     options?: ScraperGenerateOptions
   ) {
     const preprocessed = await preprocess(page, options)
-    return generateAISDKCode<T>(this.client, preprocessed, schema, options)
+    return generateAISDKCode(this.client, preprocessed, output, options)
   }
 }
